@@ -1,22 +1,22 @@
-/**
- * plugins/vuetify.js
- *
- * Framework documentation: https://vuetifyjs.com`
- */
-
-// Styles
 import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
 import * as labs from "vuetify/labs/components";
-// Composables
 import { createVuetify } from "vuetify";
+import { ar, en } from "vuetify/locale";
 
-// https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
+const savedLang = localStorage.getItem("lang") || "en";
+
 export default createVuetify({
   theme: {
-    defaultTheme: "system",
+    defaultTheme: localStorage.getItem('theme') || 'light',
   },
+  locale: {
+    locale: savedLang,
+    fallback: 'en',
+    messages: { ar, en },
+  },
+  rtl: savedLang === 'ar',
   components: {
-    ...labs, // registers VPieChart, etc.
+    ...labs,
   },
 });

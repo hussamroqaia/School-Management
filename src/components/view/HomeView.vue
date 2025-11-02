@@ -1,197 +1,329 @@
 <script>
 import { mapState, mapActions } from "pinia";
-import { useStudentStore } from "@/stores/student";
-import { useTeacherStore } from "@/stores/teacher";
+import { useDashboardStore } from "@/stores/dashboard";
 
 export default {
-  name: "GroupItems",
-  data() {
-    return {
-      selectedGroup: "Transactions",
-    };
-  },
+  name: "HomeView",
   computed: {
-    currentItems() {
-      const tx = [
-        {
-          id: 1,
-          title: "House & Bills",
-          value: 40,
-          color: "rgba(var(--v-theme-on-surface), .2)",
-          pattern: "url(#pattern-0)",
-        },
-        {
-          id: 2,
-          title: "Transportation",
-          value: 25,
-          color: "rgba(255, 151, 215, .4)",
-        },
-        {
-          id: 3,
-          title: "Entertainment",
-          value: 20,
-          color: "rgba(255, 151, 215, .6)",
-        },
-        { id: 4, title: "Food", value: 10, color: "rgba(255, 151, 215, .8)" },
-        { id: 5, title: "Other", value: 5, color: "rgba(255, 151, 215, 1)" },
-      ].map((it) => ({ ...it, label: it.title }));
-
-      const other = [
-        { id: 1, title: "OSS Donations", value: 37, color: "#767119" },
-        { id: 2, title: "Travel", value: 22, color: "#9e850d" },
-        { id: 3, title: "Investment", value: 20, color: "#cb9700" },
-        { id: 4, title: "Books", value: 11, color: "#ffa600" },
-      ].map((it) => ({ ...it, label: it.title }));
-
-      return this.selectedGroup === "Transactions" ? tx : other;
+    ...mapState(useDashboardStore, ["dashboard", "isLoading"]),
+    metrics() {
+      return this.dashboard?.metrics || {};
     },
-    ...mapState(useStudentStore, ["totalCount"]),
-    ...mapState(useTeacherStore, ["totalTeacherCount"]),
+    attendanceEvolution() {
+      return this.dashboard?.attendanceEvolution || [];
+    },
+    courseAttendance() {
+      return this.dashboard?.courseAttendance || [];
+    },
+    teacherSessionsSummary() {
+      return this.dashboard?.teacherSessionsSummary || [];
+    },
+    courseAttendanceChartData() {
+      return this.courseAttendance.map((course, index) => ({
+        id: course.courseId,
+        title: course.courseTitle,
+        value: Math.max(course.averageAttendanceRate || 0, 1),
+        label: course.courseTitle,
+        color: this.getColorForIndex(index),
+      }));
+    },
+    attendanceEvolutionLabels() {
+      return this.attendanceEvolution.map((item) =>
+        new Date(item.date).toLocaleDateString()
+      );
+    },
+    attendanceEvolutionChartData() {
+      if (this.attendanceEvolution.length === 0) return [];
+      return [
+        {
+          label: this.$t("Attendance Rate"),
+          data: this.attendanceEvolution.map((item) => ({
+            x: new Date(item.date).toLocaleDateString(),
+            y: item.attendanceRate || 0,
+          })),
+        },
+      ];
+    },
   },
   async mounted() {
-    this.isLoading = true;
-    await this.list();
-    await this.listTeaches();
-
-    this.isLoading = false;
+    await this.fetchDashboard();
   },
   methods: {
-    ...mapActions(useStudentStore, ["list"]),
-    ...mapActions(useTeacherStore, ["listTeachers"]),
+    ...mapActions(useDashboardStore, ["fetchDashboard"]),
+    getColorForIndex(index) {
+      const colors = [
+        "#1976d2",
+        "#388e3c",
+        "#f57c00",
+        "#7b1fa2",
+        "#c2185b",
+        "#0097a7",
+        "#455a64",
+        "#5d4037",
+      ];
+      return colors[index % colors.length];
+    },
+    formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString();
+    },
+    formatMoney(amount) {
+      return `${this.$t("US Dollar")} ${Number(amount).toLocaleString()}`;
+    },
   },
 };
 </script>
 
 <template>
-  <v-container>
-    <v-row>
-      <v-col cols="12" sm="6" md="3">
-        <v-card color="success" class="pa-4">
-          <v-icon :size="32" class="float-right">mdi-account-group</v-icon>
-          <div class="text-h5">{{ totalCount }}</div>
-          <div class="text-subtitle-1">
-            {{ $t("Total") }} {{ $t("Students") }}
-          </div>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="3">
-        <v-card color="info" class="pa-4">
-          <v-icon :size="32" class="float-right">mdi-account-group</v-icon>
-          <div class="text-h5">{{ totalTeacherCount }}</div>
-          <div class="text-subtitle-1">
-            {{ $t("Total") }} {{ $t("Teachers") }}
-          </div>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="3">
-        <v-card color="warning" class="pa-4">
-          <v-icon :size="32" class="float-right">mdi-account-group</v-icon>
-          <div class="text-h5">5</div>
-          <div class="text-subtitle-1">
-            {{ $t("Total") }} {{ $t("Classes") }}
-          </div>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="3">
-        <v-card color="error" class="pa-4">
-          <v-icon :size="32" class="float-right">mdi-account-group</v-icon>
-          <div class="text-h5">7</div>
-          <div class="text-subtitle-1">
-            {{ $t("Total") }} {{ $t("Courses") }}
-          </div>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <div class="d-flex my-6 justify-center">
-      <v-card class="pa-6" elevation="6" rounded="xl">
-        <v-card-title class="d-flex align-center justify-space-between">
-          <div class="text-truncate mr-6">Expenses</div>
-          <v-select
-            v-model="selectedGroup"
-            :items="['Transactions', 'Other']"
-            density="compact"
-            max-width="200"
-            variant="solo-filled"
-            flat
-            hide-details
-            single-line
-          />
-        </v-card-title>
-
-        <!-- ✅ Use VPieChart (Labs) instead of v-pie -->
-        <VPieChart
-          :key="selectedGroup"
-          :items="currentItems"
-          :legend="{ position: $vuetify.display.mdAndUp ? 'right' : 'bottom' }"
-          :tooltip="{ subtitleFormat: '[value]%' }"
-          class="pa-3 mt-3 justify-center"
-          gap="2"
-          inner-cut="70"
-          item-key="id"
-          rounded="2"
-          size="300"
-          animation
-          hide-slice
-          reveal
+  <VContainer class="py-6">
+    <div v-if="isLoading">
+      <VRow>
+        <VCol
+          v-for="n in 7"
+          :key="n"
+          cols="12"
+          sm="6"
+          md="4"
+          lg="3"
         >
-          <template #center>
-            <div class="text-center">
-              <div class="text-h3">130</div>
-              <div class="opacity-70 mt-1 mb-n1">Total</div>
+          <VSkeletonLoader type="card" />
+        </VCol>
+      </VRow>
+    </div>
+
+    <div v-else-if="dashboard">
+      <VRow>
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard color="success" class="pa-4">
+            <VIcon :size="32" class="float-right">mdi-book-open-page-variant</VIcon>
+            <div class="text-h5">{{ metrics.coursesCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Total") }} {{ $t("Courses") }}
             </div>
-          </template>
+          </VCard>
+        </VCol>
 
-          <template #legend="{ items, toggle, isActive }">
-            <v-list
-              class="py-0 mb-n5 mb-md-0 bg-transparent"
-              density="compact"
-              width="300"
-            >
-              <v-list-item
-                v-for="item in items"
-                :key="item.key"
-                :class="['my-1', { 'opacity-40': !isActive(item) }]"
-                :title="item.title"
-                rounded="lg"
-                link
-                @click="toggle(item)"
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard color="info" class="pa-4">
+            <VIcon :size="32" class="float-right">mdi-account-group</VIcon>
+            <div class="text-h5">{{ metrics.studentsCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Total") }} {{ $t("Students") }}
+            </div>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard color="primary" class="pa-4">
+            <VIcon :size="32" class="float-right">mdi-account-tie</VIcon>
+            <div class="text-h5">{{ metrics.teachersCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Total") }} {{ $t("Teachers") }}
+            </div>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard color="warning" class="pa-4">
+            <VIcon :size="32" class="float-right">mdi-google-classroom</VIcon>
+            <div class="text-h5">{{ metrics.classRoomsCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Total") }} {{ $t("Classes") }}
+            </div>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard class="pa-4" style="background-color: #9c27b0; color: white;">
+            <VIcon :size="32" class="float-right">mdi-bus</VIcon>
+            <div class="text-h5">{{ metrics.busesCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Total") }} {{ $t("Buses") }}
+            </div>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard color="success" variant="tonal" class="pa-4">
+            <VIcon :size="32" class="float-right">mdi-check-circle</VIcon>
+            <div class="text-h5">{{ metrics.activeTeachersCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Active") }} {{ $t("Teachers") }}
+            </div>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" sm="6" md="4" lg="3">
+          <VCard color="error" variant="tonal" class="pa-4">
+            <VIcon :size="32" class="float-right">mdi-close-circle</VIcon>
+            <div class="text-h5">{{ metrics.inactiveTeachersCount || 0 }}</div>
+            <div class="text-subtitle-1">
+              {{ $t("Inactive") }} {{ $t("Teachers") }}
+            </div>
+          </VCard>
+        </VCol>
+      </VRow>
+
+      <VRow class="mt-6">
+        <VCol cols="12" md="6">
+          <VCard>
+            <VCardTitle>
+              <VIcon icon="mdi-chart-line" class="me-2" />
+              {{ $t("Attendance Evolution") }}
+            </VCardTitle>
+            <VDivider />
+            <VCardText>
+              <div v-if="attendanceEvolution.length === 0" class="text-center py-8">
+                <VIcon icon="mdi-chart-line" size="64" class="mb-4 text-medium-emphasis" />
+                <div class="text-body-1 text-medium-emphasis">
+                  {{ $t("No attendance data available") }}
+                </div>
+              </div>
+              <div v-else>
+                <VSparkline
+                  :model-value="attendanceEvolution.map((item) => item.attendanceRate || 0)"
+                  :labels="attendanceEvolutionLabels"
+                  color="primary"
+                  height="200"
+                  padding="16"
+                  smooth
+                  show-labels
+                  line-width="2"
+                  :min="0"
+                  :max="100"
+                />
+                <VSimpleTable class="mt-4">
+                  <thead>
+                    <tr>
+                      <th>{{ $t("Date") }}</th>
+                      <th>{{ $t("Attendance Rate") }}</th>
+                      <th>{{ $t("Total Sessions") }}</th>
+                      <th>{{ $t("Attended Sessions") }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in attendanceEvolution" :key="item.date">
+                      <td>{{ formatDate(item.date) }}</td>
+                      <td>
+                        <VChip size="small" :color="(item.attendanceRate || 0) > 50 ? 'success' : 'warning'">
+                          {{ item.attendanceRate || 0 }}%
+                        </VChip>
+                      </td>
+                      <td>{{ item.totalSessions || 0 }}</td>
+                      <td>{{ item.attendedSessions || 0 }}</td>
+                    </tr>
+                  </tbody>
+                </VSimpleTable>
+              </div>
+            </VCardText>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" md="6">
+          <VCard>
+            <VCardTitle>
+              <VIcon icon="mdi-chart-bar" class="me-2" />
+              {{ $t("Course Attendance") }}
+            </VCardTitle>
+            <VDivider />
+            <VCardText>
+              <div v-if="courseAttendance.length === 0" class="text-center py-8">
+                <VIcon icon="mdi-chart-bar" size="64" class="mb-4 text-medium-emphasis" />
+                <div class="text-body-1 text-medium-emphasis">
+                  {{ $t("No course attendance data available") }}
+                </div>
+              </div>
+              <div v-else>
+                <VSparkline
+                  :model-value="courseAttendance.map((course) => course.averageAttendanceRate || 0)"
+                  :labels="courseAttendance.map((course) => course.courseTitle)"
+                  color="secondary"
+                  height="200"
+                  padding="16"
+                  smooth
+                  show-labels
+                  line-width="2"
+                  :min="0"
+                  :max="100"
+                />
+                <VSimpleTable class="mt-4">
+                  <thead>
+                    <tr>
+                      <th>{{ $t("Course") }}</th>
+                      <th>{{ $t("Attendance Rate") }}</th>
+                      <th>{{ $t("Total Sessions") }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="course in courseAttendance" :key="course.courseId">
+                      <td>{{ course.courseTitle }}</td>
+                      <td>
+                        <VChip size="small" :color="(course.averageAttendanceRate || 0) > 50 ? 'success' : 'warning'">
+                          {{ course.averageAttendanceRate || 0 }}%
+                        </VChip>
+                      </td>
+                      <td>{{ course.totalSessions || 0 }}</td>
+                    </tr>
+                  </tbody>
+                </VSimpleTable>
+              </div>
+            </VCardText>
+          </VCard>
+        </VCol>
+      </VRow>
+
+      <VRow class="mt-6">
+        <VCol cols="12">
+          <VCard>
+            <VCardTitle>
+              <VIcon icon="mdi-account-tie" class="me-2" />
+              {{ $t("Teacher Sessions Summary") }}
+            </VCardTitle>
+            <VDivider />
+            <VCardText>
+              <div v-if="teacherSessionsSummary.length === 0" class="text-center py-8">
+                <VIcon icon="mdi-account-tie" size="64" class="mb-4 text-medium-emphasis" />
+                <div class="text-body-1 text-medium-emphasis">
+                  {{ $t("No teacher sessions data available") }}
+                </div>
+              </div>
+              <VDataTable
+                v-else
+                :items="teacherSessionsSummary"
+                :headers="[
+                  { title: $t('Teacher Name'), key: 'teacherName' },
+                  { title: $t('Sessions This Month'), key: 'sessionsCountThisMonth' },
+                  { title: $t('Total Payments'), key: 'totalPaymentsThisMonth' },
+                ]"
+                item-key="teacherId"
               >
-                <template #prepend>
-                  <v-avatar :color="item.color" :size="16" />
+                <template #item.teacherName="{ item }">
+                  <div class="d-flex align-center">
+                    <VIcon icon="mdi-account" class="me-2" />
+                    {{ item.teacherName }}
+                  </div>
                 </template>
-                <template #append>
-                  <div class="font-weight-bold">{{ item.value }}%</div>
+                <template #item.sessionsCountThisMonth="{ item }">
+                  <VChip size="small" color="primary" variant="tonal">
+                    {{ item.sessionsCountThisMonth }}
+                  </VChip>
                 </template>
-              </v-list-item>
-            </v-list>
-          </template>
-        </VPieChart>
-      </v-card>
+                <template #item.totalPaymentsThisMonth="{ item }">
+                  <div class="font-weight-bold">
+                    {{ formatMoney(item.totalPaymentsThisMonth) }}
+                  </div>
+                </template>
+              </VDataTable>
+            </VCardText>
+          </VCard>
+        </VCol>
+      </VRow>
     </div>
 
-    <div class="h-0">
-      <svg height="0" width="0" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern
-            id="pattern-0"
-            height="20"
-            width="20"
-            patternUnits="userSpaceOnUse"
-            patternTransform="rotate(145) scale(.2)"
-          >
-            <path
-              d="M0 10h20zm0 20h20zm0 20h20zm0 20h20z"
-              fill="none"
-              stroke="rgb(var(--v-theme-surface))"
-              stroke-width="3"
-            />
-          </pattern>
-        </defs>
-      </svg>
+    <div v-else class="text-center py-12">
+      <VIcon icon="mdi-alert-circle" size="64" class="mb-4 text-medium-emphasis" />
+      <div class="text-h6 text-medium-emphasis">
+        {{ $t("Failed to load dashboard data") }}
+      </div>
     </div>
-  </v-container>
+  </VContainer>
 </template>

@@ -1,13 +1,12 @@
 import { registerPlugins } from "@/plugins";
-
-// Components
 import App from "./App.vue";
-
-// Composables
 import { createApp } from "vue";
-
-// Styles
 import "unfonts.css";
+
+// Initialize RTL before app mounts
+const savedLang = localStorage.getItem("lang") || "en";
+document.documentElement.setAttribute("dir", savedLang === "ar" ? "rtl" : "ltr");
+document.documentElement.setAttribute("lang", savedLang);
 
 const app = createApp(App);
 

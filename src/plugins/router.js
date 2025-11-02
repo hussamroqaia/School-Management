@@ -5,7 +5,11 @@ import LoginLayout from "@/components/layout/LoginLayout.vue";
 import LoginView from "@/components/view/LoginView.vue";
 import DefaultLayout from "@/components/layout/DefaultLayout.vue";
 import AboutView from "@/components/view/AboutView.vue";
-import CoursesView from "@/components/view/CoursesView.vue";
+
+import CoursesView from "@/components/view/course/CoursesView.vue";
+import CourseView from "@/components/view/course/CourseView.vue";
+import CourseAddForm from "@/components/view/course/CourseAddForm.vue";
+import CourseEditForm from "@/components/view/course/CourseEditForm.vue";
 
 import ClassesView from "@/components/view/classes/ClassesView.vue";
 import ClassView from "@/components/view/classes/ClassView.vue";
@@ -19,6 +23,11 @@ import teacherView from "@/components/view/teacher/TeacherView.vue";
 import TeacherAddView from "@/components/view/teacher/TeacherAddView.vue";
 import TeacherEditView from "@/components/view/teacher/TeacherEditView.vue";
 import TeachersView from "@/components/view/teacher/TeachersView.vue";
+
+import BusesView from "@/components/view/bus/BusesView.vue";
+import BusAddView from "@/components/view/bus/BusAddView.vue";
+import BusEditView from "@/components/view/bus/BusEditView.vue";
+import BusView from "@/components/view/bus/BusView.vue";
 
 const routes = [
   {
@@ -82,7 +91,43 @@ const routes = [
         name: "class-view",
         props: true,
       },
+
       { path: "courses", component: CoursesView, name: "courses" },
+      {
+        path: "/courses/:id",
+        name: "course-view",
+        component: CourseView,
+        props: true,
+      },
+      {
+        path: "courses/add",
+        component: CourseAddForm,
+        name: "CourseAddForm",
+      },
+      {
+        path: "/courses/:id/edit",
+        name: "course-edit",
+        component: CourseEditForm,
+        props: true,
+      },
+      { path: "buses", component: BusesView, name: "buses" },
+      {
+        path: "/buses/:id",
+        name: "bus-view",
+        component: BusView,
+        props: true,
+      },
+      {
+        path: "buses/add",
+        component: BusAddView,
+        name: "bus-add",
+      },
+      {
+        path: "/buses/:id/edit",
+        name: "bus-edit",
+        component: BusEditView,
+        props: true,
+      },
     ],
   },
   {
@@ -95,4 +140,53 @@ const routes = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem("token");
+  const userStr = localStorage.getItem("user");
+  let user = null;
+  
+  if (userStr) {
+    try {
+      user = JSON.parse(userStr);
+    } catch (e) {
+      console.error("Failed to parse user data:", e);
+    }
+  }
+
+  if (to.name === "login-page") {
+    if (token) {
+      next({ name: "home" });
+    } else {
+      next();
+    }
+    return;
+  }
+
+  if (!token) {
+    next({ name: "login-page" });
+    return;
+  }
+
+  if (!user) {
+    if (token) {
+      next();
+      return;
+    }
+    next({ name: "login-page" });
+    return;
+  }
+
+  const userRole = user.role;
+
+  if (userRole === "teacher") {
+    const allowedRoutes = ["home", "teachers", "teacher-view", "teacher-edit"];
+    if (!allowedRoutes.includes(to.name)) {
+      next({ name: "home" });
+      return;
+    }
+  }
+
+  next();
 });

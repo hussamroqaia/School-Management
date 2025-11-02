@@ -20,6 +20,11 @@ export default {
     subjectName() {
       return this.teacher.subject?.name || `Subject #${this.teacher.subjectId}`;
     },
+    pageBackgroundStyle() {
+      return {
+        backgroundColor: "#212121",
+      };
+    },
   },
   async mounted() {
     const id = Number(this.$route.params.id);
@@ -27,13 +32,37 @@ export default {
   },
   methods: {
     ...mapActions(useTeacherStore, ["getTeacher"]),
+    initials(teacher) {
+      if (teacher.firstName && teacher.lastName) {
+        return (
+          (teacher.firstName?.[0] || "") + (teacher.lastName?.[0] || "")
+        ).toUpperCase();
+      }
+      return (teacher.name?.[0] || "?").toUpperCase();
+    },
+    studentInitials(student) {
+      if (student.firstName && student.lastName) {
+        return (
+          (student.firstName?.[0] || "") + (student.lastName?.[0] || "")
+        ).toUpperCase();
+      }
+      return (student.name?.[0] || "?").toUpperCase();
+    },
+    avatarColor(gender) {
+      return gender === "FEMALE" ? "pink" : "blue";
+    },
     formatMoney(n) {
       return `US $ ${Number(n).toLocaleString()}`;
+    },
+    formatDate(d) {
+      if (!d) return "—";
+      const dt = new Date(d);
+      return isNaN(dt) ? "—" : dt.toLocaleDateString();
     },
     formatDateTime(d) {
       if (!d) return "—";
       const dt = new Date(d);
-      return isNaN(dt) ? "—" : dt.toLocaleDateString();
+      return isNaN(dt) ? "—" : dt.toLocaleString();
     },
   },
 };
@@ -41,16 +70,15 @@ export default {
 
 <template>
   <VContainer class="py-6">
-    <!-- Toolbar -->
     <VToolbar flat density="comfortable" class="px-0">
       <VBtn
         variant="text"
         @click="$router.back()"
         prepend-icon="mdi-arrow-left"
       >
-        Back
+        {{ $t("Back") }}
       </VBtn>
-      <VToolbarTitle class="ms-2">Teacher Details</VToolbarTitle>
+      <VToolbarTitle class="ms-2">{{ $t("Teacher Details") }}</VToolbarTitle>
 
       <VBtn
         v-if="teacher"
@@ -58,30 +86,35 @@ export default {
         :to="{ name: 'teacher-edit', params: { id: teacher.id } }"
         prepend-icon="mdi-pencil"
       >
-        Edit
+        {{ $t("Edit") }}
       </VBtn>
     </VToolbar>
 
-    <!-- Loading -->
     <div v-if="isLoading">
       <VSkeletonLoader type="list-item-avatar-two-line" class="mb-3" />
       <VSkeletonLoader type="list-item-three-line" />
     </div>
 
-    <!-- Teacher Card -->
-    <VCard v-else-if="teacher" class="pa-4">
+    <VCard v-else-if="teacher" class="pa-4" :style="pageBackgroundStyle">
       <VRow>
-        <!-- Profile -->
         <VCol
           cols="12"
           md="4"
           class="d-flex flex-column align-center text-center"
         >
-          <VAvatar size="128" class="elevation-2">
-            <img
-              :src="teacher.imageUrl || '/placeholder-avatar.png'"
+          <VAvatar
+            size="128"
+            class="elevation-2"
+            :color="avatarColor(teacher.gender)"
+          >
+            <VImg
+              :src="teacher.imageUrl"
+              v-if="teacher.imageUrl"
               :alt="fullName"
             />
+            <span v-else class="text-h4 font-weight-bold">
+              {{ initials(teacher) }}
+            </span>
           </VAvatar>
 
           <div class="text-h5 mt-4">{{ fullName }}</div>
@@ -95,10 +128,14 @@ export default {
                 start
                 size="18"
               />
-              {{ teacher.isActive ? "Active" : "Inactive" }}
+              {{ teacher.isActive ? $t("Active") : $t("Inactive") }}
             </VChip>
 
-            <VChip size="small" variant="tonal">
+            <VChip
+              size="small"
+              variant="tonal"
+              :color="avatarColor(teacher.gender)"
+            >
               <VIcon :icon="genderIcon" start size="18" />
               {{ teacher.gender }}
             </VChip>
@@ -108,40 +145,22 @@ export default {
               {{ subjectName }}
             </VChip>
           </div>
-
-          <div class="mt-4 d-flex ga-6">
-            <VBtn
-              variant="outlined"
-              prepend-icon="mdi-email"
-              :href="`mailto:${teacher.email}`"
-            >
-              Email
-            </VBtn>
-            <VBtn
-              variant="outlined"
-              prepend-icon="mdi-phone"
-              :href="`tel:${teacher.phone}`"
-            >
-              Call
-            </VBtn>
-          </div>
         </VCol>
 
-        <!-- Info -->
         <VCol cols="12" md="8">
           <VRow>
             <VCol cols="12" md="6">
               <VList density="comfortable" class="card-list">
-                <VListItem title="Email">
+                <VListItem :title="$t('Email')">
                   <b>{{ teacher.email }}</b>
                 </VListItem>
-                <VListItem title="Phone">
+                <VListItem :title="$t('Phone')">
                   <b>{{ teacher.phone }}</b>
                 </VListItem>
-                <VListItem title="Salary / Session">
+                <VListItem :title="$t('Salary / Session')">
                   <b>{{ formatMoney(teacher.salaryPerSession) }}</b>
                 </VListItem>
-                <VListItem title="Sessions This Month">
+                <VListItem :title="$t('Sessions This Month')">
                   <b>{{ teacher.sessionsCountInMonth }}</b>
                 </VListItem>
               </VList>
@@ -149,17 +168,17 @@ export default {
 
             <VCol cols="12" md="6">
               <VList density="comfortable" class="card-list">
-                <VListItem title="Education Level">
+                <VListItem :title="$t('Education Level')">
                   <b>{{ teacher.educationLevel }}</b>
                 </VListItem>
-                <VListItem title="Degree">
+                <VListItem :title="$t('Degree')">
                   <b>{{ teacher.universityDegree }}</b>
                 </VListItem>
-                <VListItem title="Experience">
-                  <b>{{ teacher.yearsOfExperience }} years</b>
+                <VListItem :title="$t('Experience')">
+                  <b>{{ teacher.yearsOfExperience }} {{ $t("years") }}</b>
                 </VListItem>
-                <VListItem title="Date of Birth">
-                  <b>{{ formatDateTime(teacher.dob) }}</b>
+                <VListItem :title="$t('Date of Birth')">
+                  <b>{{ formatDate(teacher.bod) }}</b>
                 </VListItem>
               </VList>
             </VCol>
@@ -167,47 +186,45 @@ export default {
 
           <VDivider class="my-4" />
 
-          <!-- Subject Details -->
           <div v-if="teacher.subject">
             <div class="text-subtitle-1 text-medium-emphasis mb-2">
-              Subject Details
+              {{ $t("Subject Details") }}
             </div>
             <VSheet class="pa-3 rounded border">
-              <div><b>ID:</b> {{ teacher.subject.id }}</div>
-              <div><b>Name:</b> {{ teacher.subject.name }}</div>
               <div>
-                <b>Created At:</b>
-                {{ formatDateTime(teacher.subject.createdAt) }}
+                <b>{{ $t("Name") }}:</b> {{ teacher.subject.name }}
               </div>
             </VSheet>
           </div>
 
           <VDivider class="my-4" />
 
-          <!-- Courses Section -->
           <div>
-            <div class="text-subtitle-1 text-medium-emphasis mb-2">Courses</div>
+            <div class="text-subtitle-1 text-medium-emphasis mb-2">
+              {{ $t("Courses") }}
+            </div>
 
             <VExpansionPanels>
               <VExpansionPanel
                 v-for="course in teacher.courses"
                 :key="course.id"
                 :title="course.title"
-                :text="`From ${formatDateTime(
-                  course.startDate
-                )} to ${formatDateTime(course.endDate)}`"
+                :text="`${$t('From')} ${formatDateTime(course.startDate)} ${$t(
+                  'to'
+                )} ${formatDateTime(course.endDate)}`"
               >
                 <template #text>
                   <div class="pa-3">
                     <div class="mb-2">
-                      <b>Time:</b> {{ course.startTime }} - {{ course.endTime }}
+                      <b>{{ $t("Time") }}:</b> {{ course.startTime }} -
+                      {{ course.endTime }}
                     </div>
                     <div class="mb-2">
-                      <b>Days:</b> {{ course.days.join(", ") }}
+                      <b>{{ $t("Days") }}:</b> {{ course.days.join(", ") }}
                     </div>
 
                     <div v-if="course.classRoom" class="mb-2">
-                      <b>Classroom:</b> {{ course.classRoom.title }}
+                      <b>{{ $t("Classroom") }}:</b> {{ course.classRoom.title }}
                       <VChip
                         size="small"
                         color="primary"
@@ -216,14 +233,13 @@ export default {
                         class="ms-2"
                       >
                         <VIcon start size="16" icon="mdi-projector" />
-                        Projector
+                        {{ $t("Projector") }}
                       </VChip>
                     </div>
 
-                    <!-- Students -->
                     <div>
                       <div class="text-subtitle-2 mt-4 mb-1">
-                        Students ({{ course.students.length }})
+                        {{ $t("Students") }} ({{ course.students.length }})
                       </div>
                       <VTable
                         density="comfortable"
@@ -231,19 +247,52 @@ export default {
                       >
                         <thead>
                           <tr>
-                            <th>Name</th>
-                            <th>Gender</th>
-                            <th>Date of Birth</th>
-                            <th>Notes</th>
+                            <th>{{ $t("Name") }}</th>
+                            <th>{{ $t("Gender") }}</th>
+                            <th>{{ $t("Date of Birth") }}</th>
+                            <th>{{ $t("Notes") }}</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr v-for="s in course.students" :key="s.id">
                             <td>
-                              {{ s.student.firstName }} {{ s.student.lastName }}
+                              <div class="d-flex align-center ga-2">
+                                <VAvatar
+                                  :color="avatarColor(s.student.gender)"
+                                  size="32"
+                                >
+                                  <VImg
+                                    :src="s.student.imageUrl"
+                                    v-if="s.student.imageUrl"
+                                    :alt="
+                                      s.student.firstName && s.student.lastName
+                                        ? `${s.student.firstName} ${s.student.lastName}`
+                                        : ''
+                                    "
+                                  />
+                                  <span
+                                    v-else
+                                    class="text-body-2 font-weight-bold"
+                                  >
+                                    {{ studentInitials(s.student) }}
+                                  </span>
+                                </VAvatar>
+                                <span>
+                                  {{ s.student.firstName }}
+                                  {{ s.student.lastName }}
+                                </span>
+                              </div>
                             </td>
-                            <td>{{ s.student.gender }}</td>
-                            <td>{{ formatDateTime(s.student.bod) }}</td>
+                            <td>
+                              <VChip
+                                size="small"
+                                variant="tonal"
+                                :color="avatarColor(s.student.gender)"
+                              >
+                                {{ s.student.gender }}
+                              </VChip>
+                            </td>
+                            <td>{{ formatDate(s.student.bod) }}</td>
                             <td>{{ s.student.notes || "—" }}</td>
                           </tr>
                         </tbody>
@@ -254,7 +303,7 @@ export default {
                         variant="tonal"
                         density="comfortable"
                       >
-                        No students enrolled.
+                        {{ $t("No students enrolled") }}.
                       </VAlert>
                     </div>
                   </div>
@@ -265,22 +314,24 @@ export default {
 
           <VDivider class="my-4" />
 
-          <!-- Notes -->
           <div>
-            <div class="text-subtitle-1 text-medium-emphasis mb-2">Notes</div>
+            <div class="text-subtitle-1 text-medium-emphasis mb-2">
+              {{ $t("Notes") }}
+            </div>
             <div v-if="teacher.notes" class="pa-3 rounded border">
               {{ teacher.notes }}
             </div>
             <VAlert v-else type="info" variant="tonal" density="comfortable"
-              >No notes.</VAlert
+              >{{ $t("No notes") }}.</VAlert
             >
           </div>
         </VCol>
       </VRow>
     </VCard>
 
-    <!-- Not Found -->
-    <VAlert v-else type="warning" variant="tonal">Teacher not found.</VAlert>
+    <VAlert v-else type="warning" variant="tonal"
+      >{{ $t("Teacher not found") }}.</VAlert
+    >
   </VContainer>
 </template>
 

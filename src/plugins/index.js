@@ -2,6 +2,7 @@ import vuetify from "./vuetify";
 import { router } from "./router";
 import { createPinia } from "pinia";
 import i18n from "./i18n";
+import { useAuthStore } from "@/stores/auth";
 
 import "leaflet/dist/leaflet.css";
 
@@ -22,8 +23,13 @@ setupVeeValidate("en");
 
 export function registerPlugins(app) {
   const pinia = createPinia();
+  app.use(pinia);
+  
+  // Initialize user data after Pinia is installed
+  const authStore = useAuthStore();
+  authStore.initUser();
+  
   app.use(vuetify);
   app.use(router);
-  app.use(pinia);
   app.use(i18n);
 }

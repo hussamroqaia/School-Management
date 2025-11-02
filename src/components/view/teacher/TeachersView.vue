@@ -11,19 +11,15 @@ export default {
       selectedTeacher: null,
       snackbarColor: "success",
       activatorProps: null,
+      dialogDelete: false,
+      itemToDelete: null,
     };
   },
   computed: {
-    ...mapState(useTeacherStore, [
-      "teachers",
-      "isLoading",
-      "itemsPerPage",
-      "totalCount",
-    ]),
+    ...mapState(useTeacherStore, ["teachers", "isLoading"]),
     headers() {
       return [
         { title: this.$t("Name"), key: "name" },
-        { title: this.$t("Email"), key: "email" },
         { title: this.$t("Phone"), key: "phone" },
         { title: this.$t("education"), key: "educationLevel" },
         { title: this.$t("Experience"), key: "yearsOfExperience" },
@@ -52,6 +48,8 @@ export default {
           ? t("Email is reserved")
           : toast === "teacher-created"
           ? t("Teacher added successfully")
+          : toast === "teacher-updated"
+          ? t("Teacher updated successfully")
           : t("Done") || "Done";
       this.snackbar = true;
       const q = { ...this.$route.query };
@@ -61,40 +59,41 @@ export default {
   },
   methods: {
     ...mapActions(useTeacherStore, ["deleteTeacher", "listTeachers"]),
-    close() {
-      this.dialog = false;
+    initials(teacher) {
+      if (teacher.firstName && teacher.lastName) {
+        return (
+          (teacher.firstName?.[0] || "") + (teacher.lastName?.[0] || "")
+        ).toUpperCase();
+      }
+      return (teacher.name?.[0] || "?").toUpperCase();
     },
-    openEdit(row) {
-      this.selectedTeacher = row;
-      this.dialogEdit = true;
+    avatarColor(teacher) {
+      if (teacher.gender) {
+        return teacher.gender === "FEMALE" ? "pink" : "blue";
+      }
+      return "primary";
     },
-    closeEditForm() {
-      this.dialogEdit = false;
-      this.selectedTeacher = null;
+    openDeleteDialog(id) {
+      this.itemToDelete = id;
+      this.dialogDelete = true;
     },
-    saveEdit(payload) {
-      // Call store directly to avoid the "useStore(...)[key] is not a function" error
-      const store = useTeacherStore();
-      store.updateTeacher(payload); // payload must include { id, ...fields }
-      this.closeEditForm();
-    },
-    async onDelete(id) {
-      // console.log(id);
-
+    async confirmDelete() {
+      if (!this.itemToDelete) return;
       try {
-        await this.deleteTeacher(id);
-
-        this.snackbarText = this.$t?.("Teacher deleted successfully");
+        await this.deleteTeacher(this.itemToDelete);
+        this.snackbarText = this.$t("Teacher deleted successfully");
         this.snackbarColor = "success";
         this.snackbar = true;
-
         await this.listTeachers();
       } catch (e) {
         console.error(e);
-        this.snackbarText =
-          this.$t?.("Failed to delete teacher") || "Failed to delete teacher";
+        const errorMessage = e?.message || this.$t("Failed to delete teacher");
+        this.snackbarText = errorMessage;
         this.snackbarColor = "error";
         this.snackbar = true;
+      } finally {
+        this.dialogDelete = false;
+        this.itemToDelete = null;
       }
     },
   },
@@ -106,12 +105,15 @@ export default {
     v-model="snackbar"
     timeout="2500"
     location="top end"
-    color="success"
+    :color="snackbarColor"
     variant="flat"
     elevation="2"
-    :color="snackbarColor"
   >
-    <VIcon icon="mdi-check-circle" start class="me-2" />
+    <VIcon 
+      :icon="snackbarColor === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" 
+      start 
+      class="me-2" 
+    />
     {{ snackbarText }}
   </VSnackbar>
 
@@ -129,33 +131,42 @@ export default {
       </v-col>
     </v-row>
 
-    <!-- List -->
     <v-card class="mt-4">
       <v-data-table
         :items="teachers"
         :headers="headers"
         :loading="isLoading"
         item-value="id"
-        v-model:items-per-page="itemsPerPage"
-        :items-length="totalCount"
       >
         <template #item.name="{ item, value }">
           <v-list-item
             class="font-weight-bold text-h6 d-flex justify-start pl-0"
-            :prepend-avatar="item.imageUrl"
           >
-            <RouterLink
-              :to="`/teachers/` + item.id"
-              class="text-decoration-none"
-            >
+            <template #prepend>
+              <VAvatar :color="avatarColor(item)" size="40" class="me-3">
+                <VImg
+                  :src="item.imageUrl"
+                  v-if="item.imageUrl"
+                  :alt="
+                    item.firstName && item.lastName
+                      ? `${item.firstName} ${item.lastName}`
+                      : ''
+                  "
+                />
+                <span v-else class="text-body-1 font-weight-bold">
+                  {{ initials(item) }}
+                </span>
+              </VAvatar>
+            </template>
+            <template #default>
               {{ item.firstName }} {{ item.lastName }}
-            </RouterLink>
+            </template>
           </v-list-item>
         </template>
 
         <template #item.specialization="{ item, value }">
           <div class="d-flex ga-2">
-            <v-chip color="primary">
+            <v-chip color="primary" prepend-icon="mdi-book-open-variant">
               {{ item.subject.name }}
             </v-chip>
           </div>
@@ -163,8 +174,24 @@ export default {
 
         <template #item.yearsOfExperience="{ item, value }">
           <div class="d-flex ga-2">
-            <v-chip color="cyan-accent-4">
-              {{ item.yearsOfExperience }}
+            <v-chip color="cyan-accent-4" prepend-icon="mdi-briefcase">
+              {{ item.yearsOfExperience ? item.yearsOfExperience : "_" }}
+            </v-chip>
+          </div>
+        </template>
+
+        <template #item.educationLevel="{ item, value }">
+          <div class="d-flex ga-2">
+            <v-chip color="cyan-accent-4" prepend-icon="mdi-school">
+              {{ item.educationLevel ? item.educationLevel : "_" }}
+            </v-chip>
+          </div>
+        </template>
+
+        <template #item.phone="{ item, value }">
+          <div class="d-flex ga-2">
+            <v-chip color="cyan-accent-4" prepend-icon="mdi-phone">
+              {{ item.phone ? item.phone : "_" }}
             </v-chip>
           </div>
         </template>
@@ -174,13 +201,48 @@ export default {
             <v-btn
               size="small"
               variant="tonal"
+              color="primary"
+              icon="mdi-eye"
+              :to="`/teachers/` + item.id"
+            />
+
+            <v-btn
+              size="small"
+              variant="tonal"
+              color="primary"
+              icon="mdi-pencil"
+              :to="{ name: 'teacher-edit', params: { id: item.id } }"
+            />
+            <v-btn
+              size="small"
+              variant="tonal"
               color="error"
               icon="mdi-delete"
-              @click="onDelete(item.id)"
+              @click="openDeleteDialog(item.id)"
             />
           </div>
         </template>
       </v-data-table>
     </v-card>
   </v-container>
+
+  <VDialog v-model="dialogDelete" max-width="500">
+    <VCard>
+      <VCardTitle class="text-h6">
+        {{ $t("Are you sure you want to delete this teacher?") }}
+      </VCardTitle>
+      <VCardText>
+        {{ $t("This action cannot be undone.") }}
+      </VCardText>
+      <VCardActions>
+        <VSpacer />
+        <VBtn variant="text" @click="dialogDelete = false">
+          {{ $t("Cancel") }}
+        </VBtn>
+        <VBtn color="error" variant="tonal" @click="confirmDelete">
+          {{ $t("Delete") }}
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>

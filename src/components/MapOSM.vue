@@ -1,11 +1,11 @@
 <template>
   <VCard class="pa-0">
-    <VToolbar density="comfortable" flat>
+    <VToolbar v-if="!readonly" density="comfortable" flat>
       <VTextField
         v-model="searchText"
         :loading="searching"
         prepend-inner-icon="mdi-magnify"
-        placeholder="Search places, streets, cities…"
+        :placeholder="$t('Search places, streets, cities…')"
         clearable
         hide-details
         @keydown.enter.prevent="triggerSearch"
@@ -18,12 +18,12 @@
         prepend-icon="mdi-map-marker"
         @click="locateMe"
       >
-        Locate me
+        {{ $t("Locate me") }}
       </VBtn>
     </VToolbar>
 
     <VList
-      v-if="searchResults.length"
+      v-if="!readonly && searchResults.length"
       density="compact"
       class="mx-4 my-2"
       lines="two"
@@ -55,13 +55,13 @@
         <l-marker
           v-if="marker"
           :lat-lng="marker"
-          :draggable="true"
+          :draggable="!readonly"
           @dragend="onDragEnd"
         >
           <l-popup>
             <div class="text-body-2">
-              <b>Lat:</b> {{ marker.lat?.toFixed(6) }}<br />
-              <b>Lng:</b> {{ marker.lng?.toFixed(6) }}
+              <b>{{ $t("Lat") }}:</b> {{ marker.lat?.toFixed(6) }}<br />
+              <b>{{ $t("Lng") }}:</b> {{ marker.lng?.toFixed(6) }}
             </div>
           </l-popup>
         </l-marker>
@@ -79,6 +79,7 @@ export default {
 
   props: {
     modelValue: { type: Object, default: null },
+    readonly: { type: Boolean, default: false },
   },
   emits: ["update:modelValue"],
 
@@ -107,7 +108,12 @@ export default {
   watch: {
     modelValue(newVal) {
       this.marker = newVal || null;
-      if (newVal) this.center = newVal;
+      if (newVal) {
+        this.center = newVal;
+        if (this.readonly) {
+          this.zoom = 18;
+        }
+      }
     },
     searchText(q) {
       clearTimeout(this._debounceId);
@@ -168,6 +174,7 @@ export default {
     },
 
     onMapClick(e) {
+      if (this.readonly) return;
       const { latlng } = e;
       this.marker = { lat: latlng.lat, lng: latlng.lng };
       this.center = this.marker;
@@ -175,6 +182,7 @@ export default {
     },
 
     onDragEnd(e) {
+      if (this.readonly) return;
       const pos = e.target.getLatLng();
       this.marker = { lat: pos.lat, lng: pos.lng };
       this.center = this.marker;

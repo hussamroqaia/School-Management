@@ -16,6 +16,8 @@ export default {
 
       search: "",
       selectedClass: "ALL",
+      dialogDelete: false,
+      itemToDelete: null,
     };
   },
 
@@ -26,7 +28,6 @@ export default {
       return [
         { title: this.$t("Name"), key: "name" },
         { title: this.$t("Gender"), key: "gender" },
-        // { title: this.$t("Class"), key: "class" },
         {
           title: this.$t("Action"),
           key: "actions",
@@ -89,9 +90,25 @@ export default {
     genderIcon(gender) {
       return gender === "FEMALE" ? "mdi-gender-female" : "mdi-gender-male";
     },
-    async onDelete(id) {
+    initials(student) {
+      if (student.firstName && student.lastName) {
+        return (
+          (student.firstName?.[0] || "") + (student.lastName?.[0] || "")
+        ).toUpperCase();
+      }
+      return (student.name?.[0] || "?").toUpperCase();
+    },
+    avatarColor(gender) {
+      return gender === "FEMALE" ? "pink" : "blue";
+    },
+    openDeleteDialog(id) {
+      this.itemToDelete = id;
+      this.dialogDelete = true;
+    },
+    async confirmDelete() {
+      if (!this.itemToDelete) return;
       try {
-        await this.deleteStudent(id);
+        await this.deleteStudent(this.itemToDelete);
         await this.listStudents();
 
         this.snackbarText = this.$t("Student deleted successfully");
@@ -102,11 +119,10 @@ export default {
         this.snackbarText = this.$t("Failed to delete student");
         this.snackbarColor = "error";
         this.snackbar = true;
+      } finally {
+        this.dialogDelete = false;
+        this.itemToDelete = null;
       }
-    },
-    resetFilters() {
-      this.search = "";
-      this.selectedClass = "ALL";
     },
   },
 };
@@ -126,8 +142,8 @@ export default {
   </VSnackbar>
 
   <v-container>
-    <v-row class="align-end">
-      <v-col cols="12" md="4">
+    <v-row class="align-end justify-space-between">
+      <v-col cols="12" md="auto">
         <v-text-field
           v-model="search"
           :label="$t('Search by name')"
@@ -136,22 +152,11 @@ export default {
           hide-details="auto"
           variant="outlined"
           density="comfortable"
+          style="min-width: 300px"
         />
       </v-col>
 
-      <v-col cols="12" md="4">
-        <v-select
-          v-model="selectedClass"
-          :items="classOptions"
-          :label="$t('Class')"
-          clearable
-          hide-details="auto"
-          variant="outlined"
-          density="comfortable"
-        />
-      </v-col>
-
-      <v-col cols="12" md="4" class="d-flex justify-end ga-2">
+      <v-col cols="12" md="auto" class="d-flex justify-end ga-2">
         <v-btn
           color="primary"
           prepend-icon="mdi-plus"
@@ -159,14 +164,6 @@ export default {
           class="text-none"
         >
           {{ $t("Add Student") }}
-        </v-btn>
-
-        <v-btn
-          variant="tonal"
-          prepend-icon="mdi-filter-remove"
-          @click="resetFilters"
-        >
-          {{ $t("Reset") }}
         </v-btn>
       </v-col>
     </v-row>
@@ -182,28 +179,40 @@ export default {
         <template #item.name="{ item }">
           <v-list-item
             class="font-weight-bold text-h6 d-flex justify-start pl-0"
-            :prepend-avatar="item.imageUrl"
-            :to="`/students/` + item.id"
           >
-            {{
-              item.firstName && item.lastName
-                ? `${item.firstName} ${item.lastName}`
-                : item.name
-            }}
+            <template #prepend>
+              <VAvatar :color="avatarColor(item.gender)" size="40" class="me-3">
+                <VImg
+                  :src="item.imageUrl"
+                  v-if="item.imageUrl"
+                  :alt="
+                    item.firstName && item.lastName
+                      ? `${item.firstName} ${item.lastName}`
+                      : item.name
+                  "
+                />
+                <span v-else class="text-body-1 font-weight-bold">
+                  {{ initials(item) }}
+                </span>
+              </VAvatar>
+            </template>
+            <template #default>
+              {{
+                item.firstName && item.lastName
+                  ? `${item.firstName} ${item.lastName}`
+                  : item.name
+              }}
+            </template>
           </v-list-item>
         </template>
 
-        <!-- <template #item.class="{ item }">
-          <div class="d-flex ga-2">
-            <v-chip color="primary" variant="tonal" size="small">
-              {{ item.class || "—" }}
-            </v-chip>
-          </div>
-        </template> -->
-
         <template #item.gender="{ item }">
           <div class="d-flex ga-2">
-            <VChip size="small" variant="tonal">
+            <VChip
+              size="small"
+              variant="tonal"
+              :color="avatarColor(item.gender)"
+            >
               <VIcon :icon="genderIcon(item.gender)" start size="18" />
               {{ item.gender }}
             </VChip>
@@ -216,6 +225,13 @@ export default {
               size="small"
               variant="tonal"
               color="primary"
+              icon="mdi-eye"
+              :to="`/students/` + item.id"
+            />
+            <v-btn
+              size="small"
+              variant="tonal"
+              color="primary"
               icon="mdi-pencil"
               :to="{ name: 'StudentEditForm', params: { id: item.id } }"
             />
@@ -224,7 +240,7 @@ export default {
               variant="tonal"
               color="error"
               icon="mdi-delete"
-              @click="onDelete(item.id)"
+              @click="openDeleteDialog(item.id)"
             />
           </div>
         </template>
@@ -237,4 +253,24 @@ export default {
       </v-data-table>
     </v-card>
   </v-container>
+
+  <VDialog v-model="dialogDelete" max-width="500">
+    <VCard>
+      <VCardTitle class="text-h6">
+        {{ $t("Are you sure you want to delete this student?") }}
+      </VCardTitle>
+      <VCardText>
+        {{ $t("This action cannot be undone.") }}
+      </VCardText>
+      <VCardActions>
+        <VSpacer />
+        <VBtn variant="text" @click="dialogDelete = false">
+          {{ $t("Cancel") }}
+        </VBtn>
+        <VBtn color="error" variant="tonal" @click="confirmDelete">
+          {{ $t("Delete") }}
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>

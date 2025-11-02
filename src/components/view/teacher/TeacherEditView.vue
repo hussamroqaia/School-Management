@@ -2,36 +2,31 @@
 import { Form, Field } from "vee-validate";
 import * as yup from "yup";
 import { useTeacherStore } from "@/stores/teacher";
+import { useSubjectStore } from "@/stores/subject";
+import { mapActions } from "pinia";
+import { mapState } from "pinia";
 
 export default {
-  name: "TeacherEditView",
+  name: "TeacherAddForm",
   components: { Form, Field },
   data() {
     return {
-      loading: true,
-      teacher: null,
+      snackbar: false,
+      snackbarText: "",
+      snackbarColor: "success",
+
       formKey: 0,
-      initialValues: null, // seeded from teacher record
+      initialValues: null,
+      showPassword: false,
+
       genders: [
         { label: "Male", value: "MALE" },
         { label: "Female", value: "FEMALE" },
       ],
-      specializations: [
-        "Mathematics",
-        "Physics",
-        "Chemistry",
-        "Biology",
-        "Computer Science",
-        "English",
-        "History",
-      ],
       educationLevels: [
-        { label: "Diploma", value: "DIPLOMA" },
-        { label: "Bachelor", value: "BACHELORS" },
+        { label: "Bachelors", value: "BACHELORS" },
         { label: "Master", value: "MASTERS" },
-        { label: "PhD", value: "DOCTORATE" },
       ],
-
       schema: yup.object({
         firstName: yup
           .string()
@@ -43,200 +38,161 @@ export default {
           .trim()
           .required()
           .min(3, "Must be at least 3 characters"),
-        email: yup.string().trim().required().email(),
-        phone: yup
+        password: yup
           .string()
-          .trim()
-          .required()
-          .matches(/^\+?963\d{9}$/, "Invalid phone"),
-        yearsOfExperience: yup
+          .min(8, "Must be at least 8 characters")
+          .matches(/[A-Z]/, "Must contain at least one uppercase letter")
+          .matches(/[a-z]/, "Must contain at least one lowercase letter")
+          .matches(/[0-9]/, "Must contain at least one number"),
+
+        email: yup.string().trim().required().email(),
+        salaryPerSession: yup
           .number()
+          .required()
           .typeError("Enter a number")
-          .integer("Whole number only")
-          .min(0, "Must be ≥ 0")
-          .max(60, "Unrealistic value")
-          .required("Experience is required"),
-        specialization: yup.string().trim().required("Pick one"),
+          .min(0, "Must be ≥ 0"),
+        subjectId: yup.string().trim().required("Pick one"),
         gender: yup
           .string()
           .required("Gender is required")
           .oneOf(["MALE", "FEMALE"], "Invalid value"),
-        salaryPerSession: yup
-          .number()
-          .typeError("Enter a valid amount")
-          .transform((v, orig) => {
-            if (typeof orig === "string") {
-              const n = Number(orig.replace(/,/g, "."));
-              return Number.isNaN(n) ? v : n;
-            }
-            return v;
-          })
-          .required("Salary per session is required")
-          .min(0, "Must be ≥ 0")
-          .test("max-2-decimals", "Max 2 decimal places", (v) =>
-            v == null ? true : Number.isInteger(v * 100)
-          ),
-        universityDegree: yup
-          .string()
-          .trim()
-          .required("Degree is required")
-          .min(2, "Too short"),
-        dob: yup
-          .string()
-          .required("Date of Birth is required")
-          .matches(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
-          .test("not-future", "Cannot be in the future", (v) => {
-            if (!v) return true;
-            const d = new Date(v);
-            const t = new Date();
-            d.setHours(0, 0, 0, 0);
-            t.setHours(0, 0, 0, 0);
-            return d <= t;
-          }),
-        educationLevel: yup
-          .string()
-          .required("Education level is required")
-          .oneOf(
-            ["DIPLOMA", "BACHELORS", "MASTERS", "DOCTORATE"],
-            "Invalid value"
-          ),
-        // Keep imageUrl optional as a plain string
-        imageUrl: yup
-          .string()
-          .trim()
-          .url("Must be a valid URL")
-          .nullable()
-          .notRequired()
-          .transform((v) => (v === "" ? null : v)),
-        // notes: no validation
       }),
     };
   },
+  methods: {
+    ...mapActions(useSubjectStore, ["listSubjects"]),
+    ...mapActions(useTeacherStore, [
+      "addTeacher",
+      "getTeacher",
+      "updateTeacher",
+    ]),
+    normalizeTeacherPayload(tech) {
+      return {
+        firstName: tech.firstName.trim(),
+        lastName: tech.lastName.trim(),
+        gender: tech.gender,
+        bod: tech.bod ? new Date(tech.bod).toISOString() : null,
+        notes: tech.notes?.trim() ? tech.notes.trim() : null,
+        imageUrl: tech.imageUrl?.trim() ? tech.imageUrl.trim() : null,
+        email: tech.email.trim(),
+        password: tech.password,
+        subjectId: tech.subjectId,
+        phone: tech.phone.trim(),
+        educationLevel: tech.educationLevel?.trim(),
+        universityDegree: tech.universityDegree.trim(),
+        salaryPerSession: Number(tech.salaryPerSession),
+        yearsOfExperience: Number(tech.yearsOfExperience),
+        isActive: tech.isActive,
+      };
+    },
+    async onSubmit(values) {
+      try {
+        const result = await this.updateTeacher(
+          this.normalizeTeacherPayload(values),
+          Number(this.$route.params.id)
+        );
+
+        if (result?.conflict) {
+          this.snackbarText = this.$t("Email is already registered");
+          this.snackbarColor = "error";
+          this.snackbar = true;
+          return;
+        }
+
+        if (result?.success) {
+          this.snackbarText = this.$t("Teacher updated successfully");
+          this.snackbarColor = "success";
+          this.snackbar = true;
+
+          setTimeout(() => {
+            this.$router.push({
+              name: "teachers",
+              query: { toast: "teacher-updated" },
+            });
+          }, 1500);
+        } else {
+          this.snackbarText = this.$t(
+            "Something went wrong. Please try again."
+          );
+          this.snackbarColor = "error";
+          this.snackbar = true;
+        }
+      } catch (error) {
+        console.error("Error submitting teacher:", error);
+        this.snackbarText = this.$t("An unexpected error occurred");
+        this.snackbarColor = "error";
+        this.snackbar = true;
+      }
+    },
+  },
+  computed: {
+    ...mapState(useSubjectStore, ["subjects", "isLoadingSubjects"]),
+    ...mapState(useTeacherStore, ["isLoading", "conflict", "teacher"]),
+  },
   async mounted() {
-    const store = useTeacherStore();
-    // Ensure we have data in the store (adjust if you already have it)
-    if (store.list) {
-      await store.list();
-    }
+    await this.listSubjects();
 
     const id = Number(this.$route.params.id);
-    const found = (store.teachers || []).find((t) => t.id === id);
-    this.teacher = found || null;
+    await this.getTeacher(id);
 
     if (this.teacher) {
-      // Map teacher -> form initial values
       this.initialValues = {
         firstName: this.teacher.firstName || "",
         lastName: this.teacher.lastName || "",
         email: this.teacher.email || "",
         phone: this.teacher.phone || "",
         gender: this.teacher.gender || null,
-
-        yearsOfExperience: this.teacher.yearsOfExperience ?? 0, // not ''
-        salaryPerSession: this.teacher.salaryPerSession ?? 0, // not ''
+        password: this.password,
+        yearsOfExperience: this.teacher.yearsOfExperience ?? 0,
+        salaryPerSession: this.teacher.salaryPerSession ?? 0,
 
         specialization:
           this.teacher.specialization || this.teacher.subject?.name || null,
 
         imageUrl: this.teacher.imageUrl || null,
         universityDegree: this.teacher.universityDegree || "",
-
-        // expects YYYY-MM-DD; if empty, form will be invalid until user fills it
-        dob:
-          (this.teacher.dob || this.teacher.dateOfBirth || "")
-            .toString()
-            .slice(0, 10) || null,
+        subjectId: Number(this.teacher.subjectId) || null,
+        bod: (this.teacher.bod || "").toString().slice(0, 10) || null,
 
         educationLevel: this.teacher.educationLevel ?? null,
         notes: this.teacher.notes ?? "",
       };
       this.formKey++;
     }
-
-    this.loading = false;
-  },
-  methods: {
-    async onSubmit(values) {
-      const store = useTeacherStore();
-      const id = Number(this.$route.params.id);
-
-      const payload = {
-        id,
-        ...values,
-        // normalize
-        salaryPerSession: Number(values.salaryPerSession),
-        notes: values.notes?.trim() ? values.notes.trim() : null,
-        // if your backend uses dateOfBirth instead of dob:
-        // dateOfBirth: values.dob,
-      };
-
-      if (store.updateTeacher) {
-        store.updateTeacher(payload);
-      } else {
-        // fallback: simple replace if no action exists
-        const idx = store.teachers.findIndex((t) => t.id === id);
-        if (idx > -1) {
-          store.teachers[idx] = {
-            ...store.teachers[idx],
-            ...payload,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-      }
-
-      // navigate back with a toast
-      this.$router.push({
-        name: "teachers",
-        query: { toast: "teacher-updated" },
-      });
-    },
   },
 };
 </script>
 
 <template>
-  <VContainer class="py-6">
-    <!-- Top bar -->
-    <VToolbar flat density="comfortable" class="px-0">
+  <VCard>
+    <VToolbar density="comfortable" flat>
       <VBtn
         variant="text"
         @click="$router.back()"
         prepend-icon="mdi-arrow-left"
+        class="me-2"
       >
-        Back
+        {{ $t("Back") }}
       </VBtn>
-      <VToolbarTitle class="ms-2">Edit Teacher</VToolbarTitle>
-      <VSpacer />
+      <VToolbarTitle class="d-flex align-center">
+        <VIcon icon="mdi-pencil" class="me-2" />
+        {{ $t("Edit Teacher") }}
+      </VToolbarTitle>
     </VToolbar>
 
-    <VDivider class="my-4" />
-
-    <!-- Loading / not found -->
-    <div v-if="loading">
-      <VSkeletonLoader type="list-item-avatar-two-line" class="mb-3" />
-      <VSkeletonLoader type="list-item-three-line" />
-    </div>
-    <VAlert v-else-if="!teacher" type="warning" variant="tonal">
-      Teacher not found.
-    </VAlert>
-
-    <!-- Form -->
-    <VCard v-else class="pa-4">
-      <!-- Force Form to re-mount when data arrives via :key -->
+    <VCardText>
       <Form
-        :key="formKey"
-        :initial-values="initialValues"
         :validation-schema="schema"
-        validate-on-mount
+        :initial-values="initialValues"
+        :key="formKey"
         v-slot="{ handleSubmit, meta, isSubmitting }"
       >
         <form @submit.prevent="handleSubmit(onSubmit)">
           <VRow class="mt-2" dense>
-            <!-- firstName -->
             <VCol cols="12" md="6">
               <Field name="firstName" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="First Name"
+                  :label="$t('First Name')"
                   prepend-inner-icon="mdi-account"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
@@ -251,11 +207,10 @@ export default {
               </Field>
             </VCol>
 
-            <!-- lastName -->
             <VCol cols="12" md="6">
               <Field name="lastName" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Last Name"
+                  :label="$t('Last Name')"
                   prepend-inner-icon="mdi-account"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
@@ -270,11 +225,10 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Email -->
             <VCol cols="12" md="6">
               <Field name="email" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Email"
+                  :label="$t('Email')"
                   type="email"
                   prepend-inner-icon="mdi-email"
                   :model-value="field.value"
@@ -290,13 +244,33 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Phone -->
+            <VCol cols="12" md="6">
+              <Field name="password" v-slot="{ field, errorMessage }">
+                <VTextField
+                  :label="$t('Password (leave blank to keep)')"
+                  :type="showPassword ? 'text' : 'password'"
+                  prepend-inner-icon="mdi-lock"
+                  :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                  @click:append-inner="showPassword = !showPassword"
+                  :model-value="field.value"
+                  @update:modelValue="field.onChange"
+                  @blur="field.onBlur"
+                  :error="!!errorMessage"
+                  :error-messages="errorMessage"
+                  variant="outlined"
+                  density="comfortable"
+                  hide-details="auto"
+                  autocomplete="off"
+                />
+              </Field>
+            </VCol>
+
             <VCol cols="12" md="6">
               <Field name="phone" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Phone"
+                  :label="$t('Phone')"
                   prepend-inner-icon="mdi-phone"
-                  placeholder="+963936928788"
+                  placeholder="0936928788"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
                   @blur="field.onBlur"
@@ -310,14 +284,13 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Years of Experience -->
             <VCol cols="12" md="6">
               <Field name="yearsOfExperience" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Experience"
+                  :label="$t('Experience')"
                   prepend-inner-icon="mdi-briefcase"
+                  placeholder="0 or 1 or 2 ..."
                   type="number"
-                  placeholder="1 or 2 ..."
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
                   @blur="field.onBlur"
@@ -331,12 +304,14 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Specialization -->
             <VCol cols="12" md="6">
-              <Field name="specialization" v-slot="{ field, errorMessage }">
+              <Field name="subjectId" v-slot="{ field, errorMessage }">
                 <VAutocomplete
-                  label="Specialization"
-                  :items="specializations"
+                  :loading="isLoadingSubjects"
+                  :label="$t('Subject Categorys')"
+                  :items="subjects"
+                  item-title="label"
+                  item-value="value"
                   prepend-inner-icon="mdi-school"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
@@ -352,11 +327,10 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Image URL (keep same as your Add form) -->
             <VCol cols="12" md="6">
               <Field name="imageUrl" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Image url"
+                  :label="$t('Image url')"
                   prepend-inner-icon="mdi-image"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
@@ -367,17 +341,17 @@ export default {
                   density="comfortable"
                   hide-details="auto"
                   clearable
+                  :menu-props="{ maxHeight: 260 }"
                 />
               </Field>
             </VCol>
 
-            <!-- Degree -->
             <VCol cols="12" md="6">
               <Field name="universityDegree" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Degree"
+                  :label="$t('University Degree')"
                   prepend-inner-icon="mdi-school-outline"
-                  placeholder="e.g. B.Sc. in Mathematics"
+                  placeholder="e.g. Bachelor of Science in Mathematic"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
                   @blur="field.onBlur"
@@ -391,13 +365,12 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Date of Birth -->
             <VCol cols="12" md="6">
-              <Field name="dob" v-slot="{ field, errorMessage }">
+              <Field name="bod" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Date of Birth"
-                  type="date"
+                  :label="$t('Date of Birth')"
                   prepend-inner-icon="mdi-cake-variant"
+                  type="date"
                   :model-value="field.value"
                   @update:modelValue="field.onChange"
                   @blur="field.onBlur"
@@ -410,11 +383,10 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Salary / Session -->
             <VCol cols="12" md="6">
               <Field name="salaryPerSession" v-slot="{ field, errorMessage }">
                 <VTextField
-                  label="Salary / Session"
+                  :label="$t('Salary / Session')"
                   prepend-inner-icon="mdi-cash-multiple"
                   type="number"
                   inputmode="decimal"
@@ -433,11 +405,10 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Education Level -->
             <VCol cols="12" md="6">
               <Field name="educationLevel" v-slot="{ field, errorMessage }">
                 <VSelect
-                  label="Education Level"
+                  :label="$t('Education Level')"
                   :items="educationLevels"
                   item-title="label"
                   item-value="value"
@@ -456,11 +427,10 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Gender -->
             <VCol cols="12" md="6">
               <Field name="gender" v-slot="{ field, errorMessage }">
                 <VSelect
-                  :label="$t('Gender') || 'Gender'"
+                  :label="$t('Gender')"
                   :items="genders"
                   item-title="label"
                   item-value="value"
@@ -479,11 +449,22 @@ export default {
               </Field>
             </VCol>
 
-            <!-- Notes (optional) -->
+            <VCol cols="12" md="6">
+              <Field name="isActive" v-slot="{ field }">
+                <VSwitch
+                  inset
+                  color="success"
+                  :label="$t('Is Active')"
+                  :model-value="field.value ?? true"
+                  @update:modelValue="field.onChange"
+                />
+              </Field>
+            </VCol>
+
             <VCol cols="12">
               <Field name="notes" v-slot="{ field }">
                 <VTextarea
-                  label="Notes"
+                  :label="$t('Notes')"
                   prepend-inner-icon="mdi-note-text-outline"
                   auto-grow
                   rows="3"
@@ -499,20 +480,27 @@ export default {
             </VCol>
           </VRow>
 
-          <!-- Actions -->
           <div class="d-flex justify-end ga-3 mt-6">
             <VBtn
               type="submit"
               color="primary"
-              :disabled="isSubmitting || meta.pending || !meta.valid"
+              :disabled="!meta.valid || isSubmitting"
               :loading="isSubmitting"
             >
-              <VIcon icon="mdi-content-save" size="18" class="me-2" />
-              Save Changes
+              <VIcon icon="mdi-check" size="18" class="me-2" />
+              {{ $t("Save") }}
             </VBtn>
           </div>
         </form>
       </Form>
-    </VCard>
-  </VContainer>
+    </VCardText>
+  </VCard>
+  <VSnackbar
+    v-model="snackbar"
+    :color="snackbarColor"
+    timeout="3000"
+    location="bottom right"
+  >
+    {{ snackbarText }}
+  </VSnackbar>
 </template>

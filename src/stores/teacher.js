@@ -5,8 +5,6 @@ export const useTeacherStore = defineStore("teacher", {
     teachers: [],
     teacher: null,
     isLoading: false,
-    itemsPerPage: 10,
-    totalTeacherCount: 0,
     conflict: false,
   }),
   actions: {
@@ -103,14 +101,38 @@ export const useTeacherStore = defineStore("teacher", {
         this.isLoading = false;
       }
     },
-    updateTeacher(payload) {
-      const idx = this.teachers.findIndex((t) => t.id === payload.id);
-      if (idx === -1) return;
-      this.teachers[idx] = {
-        ...this.teachers[idx],
-        ...payload,
-        updatedAt: new Date().toISOString(),
-      };
+    async updateTeacher(payload, id) {
+      this.isLoading = true;
+      try {
+        let token = localStorage.getItem("token");
+        const res = await fetch(
+          `https://school-barakah.vercel.app/teachers/${id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+        if (res.status === 401) {
+          console.warn("Unauthorized - redirecting to login...");
+          localStorage.removeItem("token");
+          router.push({ name: "login-page" });
+          return;
+        }
+        if (res.status === 409) {
+          this.conflict = true;
+          return { success: false, conflict: true };
+        }
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        return { success: true, conflict: false };
+      } catch (error) {
+        console.error("Failed to update student:", error);
+      } finally {
+        this.isLoading = false;
+      }
     },
     async deleteTeacher(id) {
       this.isLoading = true;
@@ -132,8 +154,16 @@ export const useTeacherStore = defineStore("teacher", {
           router.push({ name: "login-page" });
           return;
         }
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `Failed to delete teacher. Status: ${res.status}`
+          );
+        }
+        return { success: true };
       } catch (error) {
         console.error("Failed to delete teacher:", error);
+        throw error;
       } finally {
         this.isLoading = false;
       }

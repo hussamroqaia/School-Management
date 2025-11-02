@@ -1,91 +1,89 @@
 import { defineStore } from "pinia";
+import { router } from "@/plugins/router";
 
-function nowISO() {
-  return new Date().toISOString();
-}
-
-export const useClassStore = defineStore("class", {
+export const useBusStore = defineStore("bus", {
   state: () => {
     return {
-      classes: [],
-      classRoom: {},
+      buses: [],
+      bus: {},
       isLoading: false,
     };
   },
 
   actions: {
-    async listClasses() {
+    async listBuses() {
       this.isLoading = true;
       try {
-        let token = localStorage.getItem("token");
-        const res = await fetch(
-          "https://school-barakah.vercel.app/classrooms",
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const token = localStorage.getItem("token");
+        const res = await fetch("https://school-barakah.vercel.app/buses", {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (res.status === 401) {
           console.warn("Unauthorized - redirecting to login...");
           localStorage.removeItem("token");
           router.push({ name: "login-page" });
           return;
+        }
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
         }
         const data = await res.json();
         console.log(data);
 
-        this.classes = data;
+        this.buses = data;
       } catch (error) {
-        console.error("Failed to fetch classes:", error);
+        console.error("Failed to fetch buses:", error);
       } finally {
         this.isLoading = false;
       }
     },
 
-    async getClass(id) {
+    async addBus(payload) {
       this.isLoading = true;
       try {
-        let token = localStorage.getItem("token");
-        const res = await fetch(
-          `https://school-barakah.vercel.app/classrooms/${id}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const token = localStorage.getItem("token");
+        const res = await fetch(`https://school-barakah.vercel.app/buses`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
         if (res.status === 401) {
           console.warn("Unauthorized - redirecting to login...");
           localStorage.removeItem("token");
           router.push({ name: "login-page" });
           return;
+        }
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
         }
         const data = await res.json();
-        this.classRoom = data;
-        console.log(this.classRoom);
+        return { success: true, data };
       } catch (error) {
-        console.error("Failed to fetch classRoom:", error);
+        console.error("Failed to add bus:", error);
+        throw error;
       } finally {
         this.isLoading = false;
       }
     },
 
-    async addClass(payload) {
+    async deleteBus(id) {
       this.isLoading = true;
       try {
-        let token = localStorage.getItem("token");
+        const token = localStorage.getItem("token");
         const res = await fetch(
-          `https://school-barakah.vercel.app/classrooms`,
+          `https://school-barakah.vercel.app/buses/${id}`,
           {
-            method: "POST",
+            method: "DELETE",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(payload),
           }
         );
         if (res.status === 401) {
@@ -94,19 +92,27 @@ export const useClassStore = defineStore("class", {
           router.push({ name: "login-page" });
           return;
         }
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `Failed to delete bus. Status: ${res.status}`
+          );
+        }
+        return { success: true };
       } catch (error) {
-        console.error("Failed to add class:", error);
+        console.error("Failed to delete bus:", error);
+        throw error;
       } finally {
         this.isLoading = false;
       }
     },
 
-    async updateClass(payload, id) {
+    async updateBus(payload, id) {
       this.isLoading = true;
       try {
-        let token = localStorage.getItem("token");
+        const token = localStorage.getItem("token");
         const res = await fetch(
-          `https://school-barakah.vercel.app/classrooms/${id}`,
+          `https://school-barakah.vercel.app/buses/${id}`,
           {
             method: "PATCH",
             headers: {
@@ -122,21 +128,26 @@ export const useClassStore = defineStore("class", {
           router.push({ name: "login-page" });
           return;
         }
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        const data = await res.json();
+        return { success: true, data };
       } catch (error) {
-        console.error("Failed to update class:", error);
+        console.error("Failed to update bus:", error);
+        throw error;
       } finally {
         this.isLoading = false;
       }
     },
 
-    async deleteClass(id) {
+    async getBus(id) {
       this.isLoading = true;
       try {
-        let token = localStorage.getItem("token");
+        const token = localStorage.getItem("token");
         const res = await fetch(
-          `https://school-barakah.vercel.app/classrooms/${id}`,
+          `https://school-barakah.vercel.app/buses/${id}`,
           {
-            method: "DELETE",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
@@ -149,11 +160,18 @@ export const useClassStore = defineStore("class", {
           router.push({ name: "login-page" });
           return;
         }
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        const data = await res.json();
+        this.bus = data;
+        console.log(this.bus);
       } catch (error) {
-        console.error("Failed to delete class:", error);
+        console.error("Failed to fetch bus:", error);
       } finally {
         this.isLoading = false;
       }
     },
   },
 });
+

@@ -1,5 +1,8 @@
 <template>
-  <v-container class="d-flex align-center justify-center" style="min-height: 100vh">
+  <v-container
+    class="d-flex align-center justify-center"
+    style="min-height: 100vh"
+  >
     <v-card class="w-100" max-width="450" elevation="4">
       <v-card-title class="text-h5 d-flex align-center justify-center pa-6">
         <VIcon icon="mdi-lock" size="32" class="me-2" />
@@ -34,9 +37,9 @@
           ></v-text-field>
 
           <v-card-actions class="pa-0">
-            <v-btn 
-              type="submit" 
-              color="primary" 
+            <v-btn
+              type="submit"
+              color="primary"
               size="large"
               block
               :loading="loading"

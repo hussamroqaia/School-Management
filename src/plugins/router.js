@@ -1,10 +1,11 @@
-import HomeView from "@/components/view/HomeView.vue";
 import { createWebHistory, createRouter } from "vue-router";
+
+import HomeView from "@/components/view/HomeView.vue";
 import NotFoundView from "@/components/view/NotFoundView.vue";
+import DefaultLayout from "@/components/layout/DefaultLayout.vue";
+
 import LoginLayout from "@/components/layout/LoginLayout.vue";
 import LoginView from "@/components/view/LoginView.vue";
-import DefaultLayout from "@/components/layout/DefaultLayout.vue";
-import AboutView from "@/components/view/AboutView.vue";
 
 import CoursesView from "@/components/view/course/CoursesView.vue";
 import CourseView from "@/components/view/course/CourseView.vue";
@@ -47,7 +48,6 @@ const routes = [
     component: DefaultLayout,
     children: [
       { path: "", component: HomeView, name: "home" },
-      { path: "about", component: AboutView, name: "about" },
       { path: "students", component: StudentsView, name: "students" },
       {
         path: "/students/:id",
@@ -146,7 +146,7 @@ router.beforeEach((to, from, next) => {
   const token = localStorage.getItem("token");
   const userStr = localStorage.getItem("user");
   let user = null;
-  
+
   if (userStr) {
     try {
       user = JSON.parse(userStr);

@@ -7,16 +7,16 @@ export default {
   computed: {
     ...mapState(useDashboardStore, ["dashboard", "isLoading"]),
     metrics() {
-      return this.dashboard?.metrics || {};
+      return this.dashboard.metrics;
     },
     attendanceEvolution() {
-      return this.dashboard?.attendanceEvolution || [];
+      return this.dashboard.attendanceEvolution;
     },
     courseAttendance() {
-      return this.dashboard?.courseAttendance || [];
+      return this.dashboard.courseAttendance;
     },
     teacherSessionsSummary() {
-      return this.dashboard?.teacherSessionsSummary || [];
+      return this.dashboard.teacherSessionsSummary;
     },
     courseAttendanceChartData() {
       return this.courseAttendance.map((course, index) => ({
@@ -77,14 +77,7 @@ export default {
   <VContainer class="py-6">
     <div v-if="isLoading">
       <VRow>
-        <VCol
-          v-for="n in 7"
-          :key="n"
-          cols="12"
-          sm="6"
-          md="4"
-          lg="3"
-        >
+        <VCol v-for="n in 7" :key="n" cols="12" sm="6" md="4" lg="3">
           <VSkeletonLoader type="card" />
         </VCol>
       </VRow>
@@ -94,8 +87,10 @@ export default {
       <VRow>
         <VCol cols="12" sm="6" md="4" lg="3">
           <VCard color="success" class="pa-4">
-            <VIcon :size="32" class="float-right">mdi-book-open-page-variant</VIcon>
-            <div class="text-h5">{{ metrics.coursesCount || 0 }}</div>
+            <VIcon :size="32" class="float-right"
+              >mdi-book-open-page-variant</VIcon
+            >
+            <div class="text-h5">{{ metrics.coursesCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Total") }} {{ $t("Courses") }}
             </div>
@@ -105,7 +100,7 @@ export default {
         <VCol cols="12" sm="6" md="4" lg="3">
           <VCard color="info" class="pa-4">
             <VIcon :size="32" class="float-right">mdi-account-group</VIcon>
-            <div class="text-h5">{{ metrics.studentsCount || 0 }}</div>
+            <div class="text-h5">{{ metrics.studentsCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Total") }} {{ $t("Students") }}
             </div>
@@ -115,7 +110,7 @@ export default {
         <VCol cols="12" sm="6" md="4" lg="3">
           <VCard color="primary" class="pa-4">
             <VIcon :size="32" class="float-right">mdi-account-tie</VIcon>
-            <div class="text-h5">{{ metrics.teachersCount || 0 }}</div>
+            <div class="text-h5">{{ metrics.teachersCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Total") }} {{ $t("Teachers") }}
             </div>
@@ -125,7 +120,7 @@ export default {
         <VCol cols="12" sm="6" md="4" lg="3">
           <VCard color="warning" class="pa-4">
             <VIcon :size="32" class="float-right">mdi-google-classroom</VIcon>
-            <div class="text-h5">{{ metrics.classRoomsCount || 0 }}</div>
+            <div class="text-h5">{{ metrics.classRoomsCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Total") }} {{ $t("Classes") }}
             </div>
@@ -133,9 +128,9 @@ export default {
         </VCol>
 
         <VCol cols="12" sm="6" md="4" lg="3">
-          <VCard class="pa-4" style="background-color: #9c27b0; color: white;">
+          <VCard class="pa-4" style="background-color: #9c27b0; color: white">
             <VIcon :size="32" class="float-right">mdi-bus</VIcon>
-            <div class="text-h5">{{ metrics.busesCount || 0 }}</div>
+            <div class="text-h5">{{ metrics.busesCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Total") }} {{ $t("Buses") }}
             </div>
@@ -145,7 +140,7 @@ export default {
         <VCol cols="12" sm="6" md="4" lg="3">
           <VCard color="success" variant="tonal" class="pa-4">
             <VIcon :size="32" class="float-right">mdi-check-circle</VIcon>
-            <div class="text-h5">{{ metrics.activeTeachersCount || 0 }}</div>
+            <div class="text-h5">{{ metrics.activeTeachersCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Active") }} {{ $t("Teachers") }}
             </div>
@@ -155,7 +150,7 @@ export default {
         <VCol cols="12" sm="6" md="4" lg="3">
           <VCard color="error" variant="tonal" class="pa-4">
             <VIcon :size="32" class="float-right">mdi-close-circle</VIcon>
-            <div class="text-h5">{{ metrics.inactiveTeachersCount || 0 }}</div>
+            <div class="text-h5">{{ metrics.inactiveTeachersCount }}</div>
             <div class="text-subtitle-1">
               {{ $t("Inactive") }} {{ $t("Teachers") }}
             </div>
@@ -172,15 +167,24 @@ export default {
             </VCardTitle>
             <VDivider />
             <VCardText>
-              <div v-if="attendanceEvolution.length === 0" class="text-center py-8">
-                <VIcon icon="mdi-chart-line" size="64" class="mb-4 text-medium-emphasis" />
+              <div
+                v-if="attendanceEvolution.length === 0"
+                class="text-center py-8"
+              >
+                <VIcon
+                  icon="mdi-chart-line"
+                  size="64"
+                  class="mb-4 text-medium-emphasis"
+                />
                 <div class="text-body-1 text-medium-emphasis">
                   {{ $t("No attendance data available") }}
                 </div>
               </div>
               <div v-else>
                 <VSparkline
-                  :model-value="attendanceEvolution.map((item) => item.attendanceRate || 0)"
+                  :model-value="
+                    attendanceEvolution.map((item) => item.attendanceRate)
+                  "
                   :labels="attendanceEvolutionLabels"
                   color="primary"
                   height="200"
@@ -191,28 +195,6 @@ export default {
                   :min="0"
                   :max="100"
                 />
-                <VSimpleTable class="mt-4">
-                  <thead>
-                    <tr>
-                      <th>{{ $t("Date") }}</th>
-                      <th>{{ $t("Attendance Rate") }}</th>
-                      <th>{{ $t("Total Sessions") }}</th>
-                      <th>{{ $t("Attended Sessions") }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="item in attendanceEvolution" :key="item.date">
-                      <td>{{ formatDate(item.date) }}</td>
-                      <td>
-                        <VChip size="small" :color="(item.attendanceRate || 0) > 50 ? 'success' : 'warning'">
-                          {{ item.attendanceRate || 0 }}%
-                        </VChip>
-                      </td>
-                      <td>{{ item.totalSessions || 0 }}</td>
-                      <td>{{ item.attendedSessions || 0 }}</td>
-                    </tr>
-                  </tbody>
-                </VSimpleTable>
               </div>
             </VCardText>
           </VCard>
@@ -226,15 +208,26 @@ export default {
             </VCardTitle>
             <VDivider />
             <VCardText>
-              <div v-if="courseAttendance.length === 0" class="text-center py-8">
-                <VIcon icon="mdi-chart-bar" size="64" class="mb-4 text-medium-emphasis" />
+              <div
+                v-if="courseAttendance.length === 0"
+                class="text-center py-8"
+              >
+                <VIcon
+                  icon="mdi-chart-bar"
+                  size="64"
+                  class="mb-4 text-medium-emphasis"
+                />
                 <div class="text-body-1 text-medium-emphasis">
                   {{ $t("No course attendance data available") }}
                 </div>
               </div>
               <div v-else>
                 <VSparkline
-                  :model-value="courseAttendance.map((course) => course.averageAttendanceRate || 0)"
+                  :model-value="
+                    courseAttendance.map(
+                      (course) => course.averageAttendanceRate
+                    )
+                  "
                   :labels="courseAttendance.map((course) => course.courseTitle)"
                   color="secondary"
                   height="200"
@@ -245,26 +238,6 @@ export default {
                   :min="0"
                   :max="100"
                 />
-                <VSimpleTable class="mt-4">
-                  <thead>
-                    <tr>
-                      <th>{{ $t("Course") }}</th>
-                      <th>{{ $t("Attendance Rate") }}</th>
-                      <th>{{ $t("Total Sessions") }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="course in courseAttendance" :key="course.courseId">
-                      <td>{{ course.courseTitle }}</td>
-                      <td>
-                        <VChip size="small" :color="(course.averageAttendanceRate || 0) > 50 ? 'success' : 'warning'">
-                          {{ course.averageAttendanceRate || 0 }}%
-                        </VChip>
-                      </td>
-                      <td>{{ course.totalSessions || 0 }}</td>
-                    </tr>
-                  </tbody>
-                </VSimpleTable>
               </div>
             </VCardText>
           </VCard>
@@ -280,8 +253,15 @@ export default {
             </VCardTitle>
             <VDivider />
             <VCardText>
-              <div v-if="teacherSessionsSummary.length === 0" class="text-center py-8">
-                <VIcon icon="mdi-account-tie" size="64" class="mb-4 text-medium-emphasis" />
+              <div
+                v-if="teacherSessionsSummary.length === 0"
+                class="text-center py-8"
+              >
+                <VIcon
+                  icon="mdi-account-tie"
+                  size="64"
+                  class="mb-4 text-medium-emphasis"
+                />
                 <div class="text-body-1 text-medium-emphasis">
                   {{ $t("No teacher sessions data available") }}
                 </div>
@@ -291,8 +271,14 @@ export default {
                 :items="teacherSessionsSummary"
                 :headers="[
                   { title: $t('Teacher Name'), key: 'teacherName' },
-                  { title: $t('Sessions This Month'), key: 'sessionsCountThisMonth' },
-                  { title: $t('Total Payments'), key: 'totalPaymentsThisMonth' },
+                  {
+                    title: $t('Sessions This Month'),
+                    key: 'sessionsCountThisMonth',
+                  },
+                  {
+                    title: $t('Total Payments'),
+                    key: 'totalPaymentsThisMonth',
+                  },
                 ]"
                 item-key="teacherId"
               >
@@ -320,7 +306,11 @@ export default {
     </div>
 
     <div v-else class="text-center py-12">
-      <VIcon icon="mdi-alert-circle" size="64" class="mb-4 text-medium-emphasis" />
+      <VIcon
+        icon="mdi-alert-circle"
+        size="64"
+        class="mb-4 text-medium-emphasis"
+      />
       <div class="text-h6 text-medium-emphasis">
         {{ $t("Failed to load dashboard data") }}
       </div>

@@ -34,7 +34,6 @@
     </v-btn>
   </v-app-bar>
 </template>
-
 <script>
 import { mapActions } from "pinia";
 import { useAuthStore } from "@/stores/auth";
@@ -55,9 +54,24 @@ export default {
     },
   },
   mounted() {
+    // Initialize theme from localStorage
     const savedTheme = localStorage.getItem("theme") || "light";
+    console.log({ savedTheme });
     this.currentTheme = savedTheme;
-    this.applyTheme(savedTheme);
+
+    // Set HTML class for theme
+    const html = document.documentElement;
+    if (savedTheme === "dark") {
+      html.classList.add("v-theme--dark");
+      html.classList.remove("v-theme--light");
+    } else {
+      html.classList.add("v-theme--light");
+      html.classList.remove("v-theme--dark");
+    }
+
+    if (this.$vuetify && this.$vuetify.theme) {
+      this.$vuetify.theme.global.name = savedTheme;
+    }
 
     // Initialize RTL based on saved language
     const savedLang = localStorage.getItem("lang") || "en";
@@ -75,27 +89,24 @@ export default {
     }
   },
   methods: {
-    applyTheme(themeName) {
-      try {
-        if (this.$vuetify && this.$vuetify.theme) {
-          this.$vuetify.theme.change(themeName);
-        }
-      } catch (e) {
-        console.warn("Theme assignment failed, trying alternative:", e);
-        const html = document.documentElement;
-        if (themeName === "dark") {
-          html.classList.add("v-theme--dark");
-          html.classList.remove("v-theme--light");
-        } else {
-          html.classList.add("v-theme--light");
-          html.classList.remove("v-theme--dark");
-        }
-      }
-    },
     toggleTheme() {
       const newTheme = this.currentTheme === "dark" ? "light" : "dark";
       this.currentTheme = newTheme;
-      this.applyTheme(newTheme);
+
+      if (this.$vuetify && this.$vuetify.theme) {
+        this.$vuetify.theme.global.name = newTheme;
+      }
+
+      // Also update HTML class for CSS-based theming
+      const html = document.documentElement;
+      if (newTheme === "dark") {
+        html.classList.add("v-theme--dark");
+        html.classList.remove("v-theme--light");
+      } else {
+        html.classList.add("v-theme--light");
+        html.classList.remove("v-theme--dark");
+      }
+
       localStorage.setItem("theme", newTheme);
     },
     toggleLanguage() {

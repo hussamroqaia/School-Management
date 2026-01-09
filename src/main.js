@@ -2,6 +2,7 @@ import { registerPlugins } from "@/plugins";
 import App from "./App.vue";
 import { createApp } from "vue";
 import "unfonts.css";
+import "@/assets/theme.css";
 
 // Initialize RTL before app mounts
 const savedLang = localStorage.getItem("lang") || "en";

@@ -1,0 +1,49 @@
+:root{
+  /* Primary palette */
+  --primary-1: #2563eb; /* blue-600 */
+  --primary-2: #06b6d4; /* cyan-500 */
+
+  /* Background gradient */
+  --bg-grad-start: #07123a;
+  --bg-grad-mid: #0b2547;
+  --bg-grad-end: #065f8c;
+
+  /* Card / glass */
+  --card-bg: rgba(255,255,255,0.03);
+  --card-backdrop-blur: 6px;
+
+  /* Text */
+  --text-primary: #ffffff;
+  --text-muted: rgba(255,255,255,0.85);
+
+  /* Accent */
+  --accent: #f59e0b; /* amber */
+}
+
+/* Light theme overrides */
+.v-theme--light {
+  --bg-grad-start: #f0f4ff;
+  --bg-grad-mid: #e6f2ff;
+  --bg-grad-end: #e6fffa;
+  --card-bg: rgba(255,255,255,0.94);
+  --text-primary: #0b1220;
+  --text-muted: rgba(11,18,32,0.7);
+}
+
+/* Dark theme overrides */
+.v-theme--dark {
+  --bg-grad-start: #07123a;
+  --bg-grad-mid: #0b2547;
+  --bg-grad-end: #065f8c;
+  --card-bg: rgba(255,255,255,0.03);
+  --text-primary: #ffffff;
+  --text-muted: rgba(255,255,255,0.85);
+}
+
+/* Small utilities */
+.text-theme-primary { color: var(--text-primary) !important; }
+.bg-theme-gradient { background: linear-gradient(135deg, var(--bg-grad-start) 0%, var(--bg-grad-mid) 50%, var(--bg-grad-end) 100%); }
+.card-theme {
+  background: var(--card-bg);
+  backdrop-filter: blur(var(--card-backdrop-blur));
+}

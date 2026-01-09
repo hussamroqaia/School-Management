@@ -164,6 +164,17 @@ export default {
       return icons[status] || "mdi-help-circle";
     },
 
+    getStatusLabel(status) {
+      if (!status) return "-";
+      const labels = {
+        new: this.$t("New"),
+        processing: this.$t("Processing"),
+        resolved: this.$t("Resolved"),
+        rejected: this.$t("Rejected"),
+      };
+      return labels[status] || status;
+    },
+
     truncateText(text, maxLength = 100) {
       if (!text) return "";
       return text.length > maxLength
@@ -196,6 +207,32 @@ export default {
       } catch (e) {
         return dateString;
       }
+    },
+
+    getAttachmentUrl(filePath) {
+      if (!filePath) return "";
+      // If file path starts with /storage, prepend the API base URL
+      if (filePath.startsWith("/storage")) {
+        return `http://localhost:8000${filePath}`;
+      }
+      // If it's already a full URL, return as is
+      if (filePath.startsWith("http")) {
+        return filePath;
+      }
+      // Otherwise, assume it's relative to the API
+      return `http://localhost:8000/storage/${filePath}`;
+    },
+
+    getFileName(filePath) {
+      if (!filePath) return "";
+      // Extract filename from path
+      const parts = filePath.split("/");
+      return parts[parts.length - 1] || filePath;
+    },
+
+    handleImageError(event) {
+      // Replace broken image with placeholder
+      event.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23ddd' width='200' height='200'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EImage not available%3C/text%3E%3C/svg%3E";
     },
 
     showSnackbar(message, color = "success") {
@@ -271,25 +308,36 @@ export default {
         }
 
         const response = await res.json();
+        console.log("Complaint Details API Response:", response);
         
         // Handle different response structures
         let complaintData = null;
         if (response.complain) {
           // API returns { status: true, complain: {...} }
           complaintData = response.complain;
+          // Fix reference_number if it has a trailing space
+          if (complaintData['reference_number ']) {
+            complaintData.reference_number = complaintData['reference_number '];
+            delete complaintData['reference_number '];
+          }
         } else if (response.complaint) {
           complaintData = response.complaint;
         } else if (response.data) {
           complaintData = response.data;
         } else if (response.status && response.data) {
           complaintData = response.data;
-        } else if (response.reference_number) {
+        } else if (response.reference_number || response['reference_number ']) {
           // If response itself is the complaint object
           complaintData = response;
+          if (complaintData['reference_number ']) {
+            complaintData.reference_number = complaintData['reference_number '];
+            delete complaintData['reference_number '];
+          }
         } else {
           complaintData = response;
         }
 
+        console.log("Processed complaint data:", complaintData);
         this.complaintDetails = complaintData;
       } catch (error) {
         console.error("Failed to fetch complaint details:", error);
@@ -932,7 +980,7 @@ export default {
                       {{ $t("Reference Number") }}
                     </div>
                     <div class="text-h6 font-weight-bold">
-                      {{ complaintDetails.reference_number }}
+                      {{ complaintDetails.reference_number || complaintDetails['reference_number '] || $t("N/A") }}
                     </div>
                   </div>
                   <VChip
@@ -941,7 +989,7 @@ export default {
                     size="large"
                   >
                     <VIcon :icon="getStatusIcon(complaintDetails.status)" start size="20" />
-                    {{ $t(complaintDetails.status) }}
+                    {{ getStatusLabel(complaintDetails.status) }}
                   </VChip>
                 </div>
               </VCardText>
@@ -949,6 +997,24 @@ export default {
 
             <!-- Complaint Information -->
             <VRow>
+              <VCol cols="12" md="6" v-if="complaintDetails.complaint_id">
+                <VCard variant="outlined" class="mb-3">
+                  <VCardText class="pa-3">
+                    <div class="d-flex align-center">
+                      <VIcon icon="mdi-identifier" size="20" class="me-3 text-primary" />
+                      <div class="flex-grow-1">
+                        <div class="text-caption text-medium-emphasis mb-1">
+                          {{ $t("Complaint ID") }}
+                        </div>
+                        <div class="text-body-1 font-weight-medium">
+                          {{ complaintDetails.complaint_id }}
+                        </div>
+                      </div>
+                    </div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+
               <VCol cols="12" md="6">
                 <VCard variant="outlined" class="mb-3">
                   <VCardText class="pa-3">
@@ -959,7 +1025,7 @@ export default {
                           {{ $t("Reference Number") }}
                         </div>
                         <div class="text-body-1 font-weight-medium">
-                          {{ complaintDetails.reference_number }}
+                          {{ complaintDetails.reference_number || complaintDetails['reference_number '] || $t("N/A") }}
                         </div>
                       </div>
                     </div>
@@ -982,7 +1048,7 @@ export default {
                           size="small"
                         >
                           <VIcon :icon="getStatusIcon(complaintDetails.status)" start size="16" />
-                          {{ $t(complaintDetails.status) }}
+                          {{ getStatusLabel(complaintDetails.status) }}
                         </VChip>
                       </div>
                     </div>
@@ -990,7 +1056,43 @@ export default {
                 </VCard>
               </VCol>
 
-              <VCol cols="12">
+              <VCol cols="12" md="6" v-if="complaintDetails.type">
+                <VCard variant="outlined" class="mb-3">
+                  <VCardText class="pa-3">
+                    <div class="d-flex align-center">
+                      <VIcon icon="mdi-format-list-bulleted-type" size="20" class="me-3 text-primary" />
+                      <div class="flex-grow-1">
+                        <div class="text-caption text-medium-emphasis mb-1">
+                          {{ $t("Type") }}
+                        </div>
+                        <div class="text-body-1">
+                          {{ complaintDetails.type }}
+                        </div>
+                      </div>
+                    </div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+
+              <VCol cols="12" md="6" v-if="complaintDetails.government_entity">
+                <VCard variant="outlined" class="mb-3">
+                  <VCardText class="pa-3">
+                    <div class="d-flex align-center">
+                      <VIcon icon="mdi-office-building-outline" size="20" class="me-3 text-primary" />
+                      <div class="flex-grow-1">
+                        <div class="text-caption text-medium-emphasis mb-1">
+                          {{ $t("Government Entity") }}
+                        </div>
+                        <div class="text-body-1">
+                          {{ complaintDetails.government_entity }}
+                        </div>
+                      </div>
+                    </div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+
+              <VCol cols="12" v-if="complaintDetails.location">
                 <VCard variant="outlined" class="mb-3">
                   <VCardText class="pa-3">
                     <div class="d-flex align-start">
@@ -1000,7 +1102,7 @@ export default {
                           {{ $t("Location") }}
                         </div>
                         <div class="text-body-1">
-                          {{ complaintDetails.location || $t("N/A") }}
+                          {{ complaintDetails.location }}
                         </div>
                       </div>
                     </div>
@@ -1008,7 +1110,7 @@ export default {
                 </VCard>
               </VCol>
 
-              <VCol cols="12">
+              <VCol cols="12" v-if="complaintDetails.description">
                 <VCard variant="outlined" class="mb-3">
                   <VCardText class="pa-3">
                     <div class="d-flex align-start">
@@ -1018,7 +1120,7 @@ export default {
                           {{ $t("Description") }}
                         </div>
                         <div class="text-body-1">
-                          {{ complaintDetails.description || $t("No description provided") }}
+                          {{ complaintDetails.description }}
                         </div>
                       </div>
                     </div>
@@ -1026,7 +1128,7 @@ export default {
                 </VCard>
               </VCol>
 
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="6" v-if="complaintDetails.created_at">
                 <VCard variant="outlined" class="mb-3">
                   <VCardText class="pa-3">
                     <div class="d-flex align-center">
@@ -1044,7 +1146,7 @@ export default {
                 </VCard>
               </VCol>
 
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="6" v-if="complaintDetails.updated_at">
                 <VCard variant="outlined" class="mb-3">
                   <VCardText class="pa-3">
                     <div class="d-flex align-center">
@@ -1062,6 +1164,76 @@ export default {
                 </VCard>
               </VCol>
             </VRow>
+
+            <!-- Attachments Section -->
+            <div v-if="complaintDetails.attachments && complaintDetails.attachments.length > 0" class="mt-6">
+              <div class="text-subtitle-1 font-weight-bold mb-4 d-flex align-center">
+                <VIcon icon="mdi-paperclip" size="20" class="me-2" />
+                {{ $t("Attachments") }} ({{ complaintDetails.attachments.length }})
+              </div>
+              <VRow>
+                <VCol
+                  v-for="attachment in complaintDetails.attachments"
+                  :key="attachment.id"
+                  cols="12"
+                  sm="6"
+                  md="4"
+                >
+                  <VCard variant="outlined" class="attachment-card">
+                    <VCardText class="pa-2">
+                      <div v-if="attachment.type === 'image'" class="text-center">
+                        <VImg
+                          :src="getAttachmentUrl(attachment.file_path)"
+                          :alt="`Attachment ${attachment.id}`"
+                          aspect-ratio="16/9"
+                          cover
+                          class="mb-2 rounded"
+                          @error="handleImageError"
+                        >
+                          <template #placeholder>
+                            <div class="d-flex align-center justify-center fill-height">
+                              <VProgressCircular indeterminate color="primary" />
+                            </div>
+                          </template>
+                        </VImg>
+                        <VBtn
+                          size="small"
+                          variant="tonal"
+                          color="primary"
+                          :href="getAttachmentUrl(attachment.file_path)"
+                          target="_blank"
+                          download
+                          block
+                        >
+                          <VIcon icon="mdi-download" start size="16" />
+                          {{ $t("Download") }}
+                        </VBtn>
+                      </div>
+                      <div v-else class="text-center">
+                        <VAvatar size="64" color="primary" variant="tonal" class="mb-2">
+                          <VIcon icon="mdi-file-document-outline" size="32" />
+                        </VAvatar>
+                        <div class="text-caption text-medium-emphasis mb-2">
+                          {{ getFileName(attachment.file_path) }}
+                        </div>
+                        <VBtn
+                          size="small"
+                          variant="tonal"
+                          color="primary"
+                          :href="getAttachmentUrl(attachment.file_path)"
+                          target="_blank"
+                          download
+                          block
+                        >
+                          <VIcon icon="mdi-download" start size="16" />
+                          {{ $t("Download") }}
+                        </VBtn>
+                      </div>
+                    </VCardText>
+                  </VCard>
+                </VCol>
+              </VRow>
+            </div>
 
             <!-- Complaint History Section -->
             <div v-if="complaintDetails.histories && complaintDetails.histories.length > 0" class="mt-6">
